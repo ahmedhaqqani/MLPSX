@@ -7,6 +7,12 @@ plugins {
     kotlin("plugin.serialization")
 }
 
+// Fixed signing key, so every build installs over the previous one. CI provides the
+// keystore through the GOLDORB_KEYSTORE_* secrets; without them the default debug key is used.
+val keystorePassword = System.getenv("GOLDORB_KEYSTORE_PASSWORD")?.takeIf { it.isNotBlank() }
+val keystoreFile = System.getenv("GOLDORB_KEYSTORE_FILE")?.let(::file)
+val hasFixedKey = keystorePassword != null && keystoreFile?.exists() == true
+
 android {
     namespace = "com.goldorb"
     compileSdk = 35
@@ -19,11 +25,24 @@ android {
         versionName = "1.0"
     }
 
+    signingConfigs {
+        if (hasFixedKey) {
+            create("fixed") {
+                storeFile = keystoreFile
+                storeType = "pkcs12"
+                storePassword = keystorePassword
+                keyAlias = System.getenv("GOLDORB_KEY_ALIAS") ?: "goldorb"
+                keyPassword = keystorePassword
+            }
+        }
+    }
+
     buildTypes {
+        val signing = signingConfigs.getByName(if (hasFixedKey) "fixed" else "debug")
+        debug { signingConfig = signing }
         release {
             isMinifyEnabled = false
-            // Signed with the debug key so the release APK installs without extra setup.
-            signingConfig = signingConfigs.getByName("debug")
+            signingConfig = signing
         }
     }
 

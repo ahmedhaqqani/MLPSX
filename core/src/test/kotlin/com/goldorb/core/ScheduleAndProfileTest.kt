@@ -131,6 +131,10 @@ class ScheduleAndProfileTest {
         assertEquals(Instant.parse("2026-10-13T07:00:00Z"), SessionSchedule.openWithin(london.open, london.zone, asianWin.open, asianWin.close))
         val londonWin = SessionSchedule.latestWindow(london, Instant.parse("2026-10-09T15:00:00Z"))
         assertEquals(Instant.parse("2026-10-09T13:30:00Z"), SessionSchedule.openWithin(ny.open, ny.zone, londonWin.open, londonWin.close))
+        // Closes: Tokyo 18:00 falls in London's session, London 17:00 in New York's.
+        assertEquals(Instant.parse("2026-10-09T09:00:00Z"), SessionSchedule.openWithin(asian.close, asian.zone, londonWin.open, londonWin.close))
+        val nyWin = SessionSchedule.latestWindow(ny, Instant.parse("2026-10-09T20:00:00Z"))
+        assertEquals(Instant.parse("2026-10-09T16:00:00Z"), SessionSchedule.openWithin(london.close, london.zone, nyWin.open, nyWin.close))
         // New York never opens inside the Asian session.
         assertEquals(null, SessionSchedule.openWithin(ny.open, ny.zone, asianWin.open, asianWin.close))
     }

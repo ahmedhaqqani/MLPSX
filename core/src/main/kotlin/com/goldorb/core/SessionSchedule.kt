@@ -86,7 +86,7 @@ object SessionSchedule {
     val SHANGHAI_OPEN: LocalTime = LocalTime.of(9, 0)
     val SHANGHAI_ZONE: ZoneId = ZoneId.of("Asia/Shanghai")
 
-    /** When the market opening at [time] in [zone] opens between [from] (inclusive) and [to], if it does. */
+    /** When [time] in [zone] (e.g. a market open or close) falls between [from] (inclusive) and [to], if it does. */
     fun openWithin(time: LocalTime, zone: ZoneId, from: Instant, to: Instant): Instant? {
         val first = from.atZone(zone).toLocalDate().minusDays(1)
         return (0L..2L).map { ZonedDateTime.of(first.plusDays(it), time, zone).toInstant() }

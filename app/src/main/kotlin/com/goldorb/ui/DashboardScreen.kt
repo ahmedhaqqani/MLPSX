@@ -240,24 +240,33 @@ private fun Count(label: String, value: Int, color: Color, modifier: Modifier) {
     }
 }
 
-/** A faint vertical line on the chart where another market opens. */
-private data class Marker(val label: String, val epoch: Long)
+/** A faint vertical line on the chart where another market opens or closes. */
+private data class Marker(val label: String, val epoch: Long, val color: Color)
 
-/** Shanghai and London opens on the Asian chart; the New York open on the London chart. */
+/**
+ * Asian chart: Shanghai and London opens. London chart: Asian close and New York open.
+ * New York chart: London close. Opens are yellow, closes red.
+ */
 private fun chartMarkers(id: SessionId, settings: AppSettings, snap: SessionSnapshot?): List<Marker> {
     if (snap == null) return emptyList()
     val from = Instant.ofEpochSecond(snap.openEpoch)
     val to = Instant.ofEpochSecond(snap.closeEpoch)
-    fun at(label: String, time: LocalTime, zone: ZoneId) =
-        SessionSchedule.openWithin(time, zone, from, to)?.let { Marker(label, it.epochSecond) }
-    fun sessionOpen(session: SessionId, label: String) = settings.session(session).let { at(label, it.open, it.zone) }
+    fun at(label: String, time: LocalTime, zone: ZoneId, color: Color) =
+        SessionSchedule.openWithin(time, zone, from, to)?.let { Marker(label, it.epochSecond, color) }
+    fun sessionOpen(session: SessionId, label: String) =
+        settings.session(session).let { at(label, it.open, it.zone, Palette.MarkerYellow) }
+    fun sessionClose(session: SessionId, label: String) =
+        settings.session(session).let { at(label, it.close, it.zone, Palette.MarkerRed) }
     return when (id) {
         SessionId.ASIAN -> listOfNotNull(
-            at("Shanghai", SessionSchedule.SHANGHAI_OPEN, SessionSchedule.SHANGHAI_ZONE),
+            at("Shanghai", SessionSchedule.SHANGHAI_OPEN, SessionSchedule.SHANGHAI_ZONE, Palette.MarkerYellow),
             sessionOpen(SessionId.LONDON, "London"),
         )
-        SessionId.LONDON -> listOfNotNull(sessionOpen(SessionId.NEW_YORK, "New York"))
-        SessionId.NEW_YORK -> emptyList()
+        SessionId.LONDON -> listOfNotNull(
+            sessionClose(SessionId.ASIAN, "Asia close"),
+            sessionOpen(SessionId.NEW_YORK, "New York"),
+        )
+        SessionId.NEW_YORK -> listOfNotNull(sessionClose(SessionId.LONDON, "London close"))
     }
 }
 
@@ -266,7 +275,6 @@ private fun MiniChart(snap: SessionSnapshot, markers: List<Marker>) {
     val candles = snap.candles
     if (candles.isEmpty()) return
     val textMeasurer = rememberTextMeasurer()
-    val labelStyle = TextStyle(color = Palette.MarkerYellow, fontSize = 9.sp)
     Canvas(Modifier.fillMaxWidth().padding(top = 10.dp).height(96.dp)) {
         val hi = maxOf(candles.maxOf { it.h }, snap.orHigh ?: -Double.MAX_VALUE)
         val lo = minOf(candles.minOf { it.l }, snap.orLow ?: Double.MAX_VALUE)
@@ -300,8 +308,8 @@ private fun MiniChart(snap: SessionSnapshot, markers: List<Marker>) {
         markers.forEach { m ->
             val mx = x(m.epoch)
             if (mx <= 0f || mx > size.width) return@forEach
-            drawLine(Palette.MarkerYellow, Offset(mx, 0f), Offset(mx, size.height), 1.5f)
-            val label = textMeasurer.measure(m.label, labelStyle)
+            drawLine(m.color, Offset(mx, 0f), Offset(mx, size.height), 1.5f)
+            val label = textMeasurer.measure(m.label, TextStyle(color = m.color, fontSize = 9.sp))
             val lx = if (mx + 3f + label.size.width <= size.width) mx + 3f else mx - 3f - label.size.width
             drawText(label, topLeft = Offset(lx, 0f))
         }

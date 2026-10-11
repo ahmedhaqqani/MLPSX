@@ -23,8 +23,9 @@ After a FAILED, a new close outside the range is a **RE-BREAK** (green or red ag
 Each box counts the 5-minute candles that closed above, inside and below the range.
 
 The mini chart shows the OR high (green dashed line), OR low (red dashed line) and the
-value area (blue band). Faint yellow vertical lines mark the Shanghai and London opens on
-the Asian chart, and the New York open on the London chart.
+value area (blue band). Faint vertical lines mark other markets: yellow for the Shanghai
+and London opens on the Asian chart and the New York open on the London chart, red for the
+Asian close on the London chart and the London close on the New York chart.
 
 - A box shows only the latest occurrence of its session. It stops updating when that
   session closes and resets when the session opens again. For example, when the Asian session
@@ -53,6 +54,25 @@ the Asian chart, and the New York open on the London chart.
   present (`ANDROID_HOME` or `local.properties`).
 
 ## Getting the APK
+
+### Fixed signing key
+
+Android only installs an update over an existing app when both are signed with the same
+key. Add two repository secrets (Settings → Secrets and variables → Actions):
+
+- `GOLDORB_KEYSTORE_BASE64`: a PKCS12 keystore with the key under alias `goldorb`, base64-encoded
+- `GOLDORB_KEYSTORE_PASSWORD`: its password (used for both the store and the key)
+
+To create them on a computer with a JDK:
+
+```sh
+keytool -genkeypair -storetype PKCS12 -keystore goldorb-signing.p12 -alias goldorb \
+  -keyalg RSA -keysize 3072 -validity 10000 -dname "CN=Gold ORB"
+base64 -w0 goldorb-signing.p12   # paste the output into GOLDORB_KEYSTORE_BASE64
+```
+
+Keep `goldorb-signing.p12` and its password safe; losing them means reinstalling the app.
+Without the secrets, CI signs with a throwaway debug key.
 
 Every push runs the **Build APK** GitHub Actions workflow. Download `GoldORB-debug-apk`
 from the run's artifacts, unzip it and install `app-debug.apk` on your phone (allow
