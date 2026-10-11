@@ -23,6 +23,7 @@ object Palette {
     val ValueArea = Color(0xFF60A5FA)
     val MarkerYellow = Color(0x80FDE047)
     val MarkerRed = Color(0x80F87171)
+    val Vwap = Color(0xFFF472B6)
 
     fun of(dot: Dot): Color = when (dot) {
         Dot.GREEN -> Green

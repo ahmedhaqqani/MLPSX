@@ -107,7 +107,12 @@ data class SessionSnapshot(
     val events: List<SignalEvent> = emptyList(),
     /** 5-minute candles from session open, for the mini chart. */
     val candles: List<Bar> = emptyList(),
+    /** Session VWAP (anchored at the open) as of the latest bar. */
+    val vwap: Double? = null,
+    /** Session VWAP at the end of each candle in [candles], for the chart line. */
+    val vwapLine: List<Double> = emptyList(),
     val updatedAt: Long = 0,
 ) {
-    val isFinal: Boolean get() = phase == Phase.CLOSED || phase == Phase.NO_DATA
+    /** Only a closed session is final; NO_DATA may still fill in if the feed is late. */
+    val isFinal: Boolean get() = phase == Phase.CLOSED
 }

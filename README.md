@@ -22,6 +22,10 @@ and New York sessions, each in its own box with a coloured signal dot.
 After a FAILED, a new close outside the range is a **RE-BREAK** (green or red again).
 Each box counts the 5-minute candles that closed above, inside and below the range.
 
+Each box also shows the **session VWAP**: anchored at the session open, the volume-weighted
+average of each 1-minute bar's typical price (high + low + close) / 3. It's shown as a pink
+line on the chart, with the last 5m close above or below it. It doesn't change the signals.
+
 The mini chart shows the OR high (green dashed line), OR low (red dashed line) and the
 value area (blue band). Faint vertical lines mark other markets: yellow for the Shanghai
 and London opens on the Asian chart and the New York open on the London chart, red for the

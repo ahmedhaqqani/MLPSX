@@ -124,6 +124,8 @@ class OrbEngineTest {
         val s = OrbEngine.evaluate(window, emptyList(), at(60))
         assertEquals(Phase.NO_DATA, s.phase)
         assertNull(s.orHigh)
+        // A late feed must not freeze the session.
+        assertTrue(!s.isFinal)
     }
 
     @Test
@@ -132,5 +134,24 @@ class OrbEngineTest {
         val five = OrbEngine.aggregate(one, open, 300)
         assertEquals(2, five.size)
         assertEquals(Bar(open, 1.0, 6.0, 0.5, 5.5, 5.0), five[0])
+    }
+
+    @Test
+    fun sessionVwapIsVolumeWeightedTypicalPrice() {
+        val bars = listOf(
+            Bar(open, 100.0, 100.0, 100.0, 100.0, 1.0),
+            Bar(open + 60, 110.0, 110.0, 110.0, 110.0, 3.0),
+            // Second 5m candle: typical price (121 + 115 + 118) / 3 = 118, volume 4.
+            Bar(open + 300, 118.0, 121.0, 115.0, 118.0, 4.0),
+        )
+        val s = OrbEngine.evaluate(window, bars, at(6))
+        assertEquals(listOf(107.5, 112.75), s.vwapLine)
+        assertEquals(112.75, s.vwap)
+    }
+
+    @Test
+    fun vwapWithoutVolumeWeightsBarsEqually() {
+        val bars = listOf(Bar(open, 100.0, 100.0, 100.0, 100.0, 0.0), Bar(open + 60, 110.0, 110.0, 110.0, 110.0, 0.0))
+        assertEquals(105.0, OrbEngine.evaluate(window, bars, at(2)).vwap)
     }
 }

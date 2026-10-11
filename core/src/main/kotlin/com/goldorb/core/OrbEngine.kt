@@ -42,6 +42,7 @@ object OrbEngine {
 
         val sessionBars = sorted.filter { it.t in open until close }
         val candles = aggregate(sessionBars, open, CANDLE_SECONDS)
+        val vwapLine = vwapAtCandleEnds(sessionBars, candles)
         val base = SessionSnapshot(
             session = window.id,
             tradingDate = window.tradingDate.toString(),
@@ -50,6 +51,8 @@ object OrbEngine {
             closeEpoch = close,
             phase = Phase.FORMING,
             candles = candles,
+            vwap = vwapLine.lastOrNull(),
+            vwapLine = vwapLine,
             updatedAt = nowS,
         )
 
@@ -153,6 +156,28 @@ object OrbEngine {
             Zone.LEAN_UP -> Dot.LIGHT_GREEN
             Zone.LEAN_DOWN -> Dot.LIGHT_RED
             else -> Dot.ORANGE
+        }
+    }
+
+    /**
+     * Session VWAP from the open, sampled at the end of each candle: the volume-weighted
+     * average of each 1-minute bar's typical price (high + low + close) / 3. Feeds with no
+     * volume weight every bar equally.
+     */
+    fun vwapAtCandleEnds(bars: List<Bar>, candles: List<Bar>): List<Double> {
+        val useVolume = bars.any { it.v > 0 }
+        var pv = 0.0
+        var vol = 0.0
+        var i = 0
+        return candles.map { candle ->
+            val end = candle.t + CANDLE_SECONDS
+            while (i < bars.size && bars[i].t < end) {
+                val b = bars[i++]
+                val w = if (useVolume) b.v else 1.0
+                pv += (b.h + b.l + b.c) / 3 * w
+                vol += w
+            }
+            if (vol > 0) pv / vol else candle.c
         }
     }
 

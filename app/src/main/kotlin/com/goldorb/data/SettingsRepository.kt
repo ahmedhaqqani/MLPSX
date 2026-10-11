@@ -40,11 +40,14 @@ data class AppSettings(
     fun session(id: SessionId): SessionConfig = sessions.first { it.id == id }
 
     /** Changes to any of these make stored session results invalid. */
-    val dataKey: String get() = "$symbol|$profileRows|$valueAreaPct|" +
+    val dataKey: String get() = "$DATA_VERSION|$symbol|$profileRows|$valueAreaPct|" +
         sessions.joinToString(";") { "${it.id}:${it.open}-${it.close}@${it.zone.id}" }
 
     companion object {
         const val DEFAULT_SYMBOL = "OANDA:XAUUSD"
+
+        /** Bump when stored session results gain fields, so finished sessions are recomputed. */
+        private const val DATA_VERSION = 2
     }
 }
 

@@ -41,7 +41,9 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.Path
 import androidx.compose.ui.graphics.PathEffect
+import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.drawText
 import androidx.compose.ui.text.font.FontWeight
@@ -172,6 +174,12 @@ private fun SessionCard(cfg: SessionConfig, snap: SessionSnapshot?, markers: Lis
             Stat("VAL", Format.price(snap.valueAreaLow), Modifier.weight(1f))
             Stat("Last 5m close", Format.price(snap.lastClose), Modifier.weight(1f))
         }
+        Spacer(Modifier.height(6.dp))
+        Row(Modifier.fillMaxWidth()) {
+            Stat("VWAP", Format.price(snap.vwap), Modifier.weight(1f), Palette.Vwap)
+            val (vsVwap, vsColor) = vwapPosition(snap)
+            Stat("Close vs VWAP", vsVwap, Modifier.weight(2f), vsColor)
+        }
 
         if (snap.phase == Phase.FORMING) {
             Text(
@@ -219,10 +227,23 @@ private fun timeLine(cfg: SessionConfig, snap: SessionSnapshot?, zone: ZoneId): 
 }
 
 @Composable
-private fun Stat(label: String, value: String, modifier: Modifier) {
+private fun Stat(label: String, value: String, modifier: Modifier, valueColor: Color = Color.Unspecified) {
     Column(modifier) {
         Text(label.uppercase(), fontSize = 10.5.sp, color = Palette.Muted, letterSpacing = 0.5.sp, maxLines = 1)
-        Text(value, fontSize = 14.sp, fontWeight = FontWeight.Medium)
+        Text(value, fontSize = 14.sp, fontWeight = FontWeight.Medium, color = valueColor)
+    }
+}
+
+/** Last completed 5m close against the session VWAP at that same candle. */
+private fun vwapPosition(snap: SessionSnapshot): Pair<String, Color> {
+    val close = snap.lastClose ?: return "—" to Color.Unspecified
+    val index = snap.candles.indexOfFirst { it.t == snap.lastCandleTime }
+    val vwap = snap.vwapLine.getOrNull(index) ?: return "—" to Color.Unspecified
+    val diff = close - vwap
+    return when {
+        diff > 0 -> "Above  +${Format.price(diff)}" to Palette.Green
+        diff < 0 -> "Below  −${Format.price(-diff)}" to Palette.Red
+        else -> "At VWAP" to Color.Unspecified
     }
 }
 
@@ -314,6 +335,13 @@ private fun MiniChart(snap: SessionSnapshot, markers: List<Marker>) {
             drawText(label, topLeft = Offset(lx, 0f))
         }
 
+        val vwapPath = Path()
+        snap.vwapLine.zip(candles).forEachIndexed { i, (v, c) ->
+            val px = x(c.t) + slot
+            if (i == 0) vwapPath.moveTo(x(c.t), y(v)) else vwapPath.lineTo(px, y(v))
+            if (i == 0) vwapPath.lineTo(px, y(v))
+        }
+
         candles.forEach { c ->
             val cx = x(c.t) + slot / 2
             val color = if (c.c >= c.o) Palette.Green else Palette.Red
@@ -322,6 +350,7 @@ private fun MiniChart(snap: SessionSnapshot, markers: List<Marker>) {
             val height = maxOf(1.5f, y(minOf(c.o, c.c)) - top)
             drawRect(color, Offset(cx - body / 2, top), Size(body, height))
         }
+        drawPath(vwapPath, Palette.Vwap, style = Stroke(width = 1.5f))
     }
 }
 
