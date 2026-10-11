@@ -82,6 +82,17 @@ object SessionSchedule {
         error("No upcoming session found for ${config.id}")
     }
 
+    /** Shanghai Gold Exchange day-session open, marked on the Asian chart. */
+    val SHANGHAI_OPEN: LocalTime = LocalTime.of(9, 0)
+    val SHANGHAI_ZONE: ZoneId = ZoneId.of("Asia/Shanghai")
+
+    /** When the market opening at [time] in [zone] opens between [from] (inclusive) and [to], if it does. */
+    fun openWithin(time: LocalTime, zone: ZoneId, from: Instant, to: Instant): Instant? {
+        val first = from.atZone(zone).toLocalDate().minusDays(1)
+        return (0L..2L).map { ZonedDateTime.of(first.plusDays(it), time, zone).toInstant() }
+            .firstOrNull { !it.isBefore(from) && it.isBefore(to) }
+    }
+
     /** Converts a session's market-zone time to the wall-clock time in [target] on [onDate]. */
     fun toZone(time: LocalTime, from: ZoneId, target: ZoneId, onDate: LocalDate): LocalTime =
         ZonedDateTime.of(onDate, time, from).withZoneSameInstant(target).toLocalTime()

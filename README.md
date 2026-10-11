@@ -22,6 +22,10 @@ and New York sessions, each in its own box with a coloured signal dot.
 After a FAILED, a new close outside the range is a **RE-BREAK** (green or red again).
 Each box counts the 5-minute candles that closed above, inside and below the range.
 
+The mini chart shows the OR high (green dashed line), OR low (red dashed line) and the
+value area (blue band). Faint yellow vertical lines mark the Shanghai and London opens on
+the Asian chart, and the New York open on the London chart.
+
 - A box shows only the latest occurrence of its session. It stops updating when that
   session closes and resets when the session opens again. For example, when the Asian session
   opens, London and New York keep showing the previous day until their own opens.

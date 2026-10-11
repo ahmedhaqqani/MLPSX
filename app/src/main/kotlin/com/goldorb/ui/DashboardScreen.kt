@@ -42,20 +42,26 @@ import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.PathEffect
+import androidx.compose.ui.text.TextStyle
+import androidx.compose.ui.text.drawText
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.rememberTextMeasurer
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.goldorb.core.EventType
+import com.goldorb.core.OrbEngine
 import com.goldorb.core.Phase
 import com.goldorb.core.SessionConfig
 import com.goldorb.core.SessionId
 import com.goldorb.core.SessionSchedule
 import com.goldorb.core.SessionSnapshot
+import com.goldorb.data.AppSettings
 import com.goldorb.data.Format
 import java.time.Instant
 import java.time.LocalDate
+import java.time.LocalTime
 import java.time.ZoneId
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -97,7 +103,7 @@ fun DashboardScreen(vm: MainViewModel, snackbar: SnackbarHostState, onOpenSettin
                     }
                 }
                 items(SessionId.entries) { id ->
-                    SessionCard(settings.session(id), snapshots[id])
+                    SessionCard(settings.session(id), snapshots[id], chartMarkers(id, settings, snapshots[id]))
                 }
                 item { Legend() }
             }
@@ -117,7 +123,7 @@ private fun Banner(text: String, action: String?, onAction: () -> Unit) {
 }
 
 @Composable
-private fun SessionCard(cfg: SessionConfig, snap: SessionSnapshot?) {
+private fun SessionCard(cfg: SessionConfig, snap: SessionSnapshot?, markers: List<Marker>) {
     val zone = ZoneId.systemDefault()
     val dotColor = snap?.let { Palette.of(it.dot) } ?: Palette.Grey
     Column(
@@ -190,7 +196,7 @@ private fun SessionCard(cfg: SessionConfig, snap: SessionSnapshot?) {
                 )
             }
         }
-        MiniChart(snap)
+        MiniChart(snap, markers)
     }
 }
 
@@ -234,46 +240,79 @@ private fun Count(label: String, value: Int, color: Color, modifier: Modifier) {
     }
 }
 
+/** A faint vertical line on the chart where another market opens. */
+private data class Marker(val label: String, val epoch: Long)
+
+/** Shanghai and London opens on the Asian chart; the New York open on the London chart. */
+private fun chartMarkers(id: SessionId, settings: AppSettings, snap: SessionSnapshot?): List<Marker> {
+    if (snap == null) return emptyList()
+    val from = Instant.ofEpochSecond(snap.openEpoch)
+    val to = Instant.ofEpochSecond(snap.closeEpoch)
+    fun at(label: String, time: LocalTime, zone: ZoneId) =
+        SessionSchedule.openWithin(time, zone, from, to)?.let { Marker(label, it.epochSecond) }
+    fun sessionOpen(session: SessionId, label: String) = settings.session(session).let { at(label, it.open, it.zone) }
+    return when (id) {
+        SessionId.ASIAN -> listOfNotNull(
+            at("Shanghai", SessionSchedule.SHANGHAI_OPEN, SessionSchedule.SHANGHAI_ZONE),
+            sessionOpen(SessionId.LONDON, "London"),
+        )
+        SessionId.LONDON -> listOfNotNull(sessionOpen(SessionId.NEW_YORK, "New York"))
+        SessionId.NEW_YORK -> emptyList()
+    }
+}
+
 @Composable
-private fun MiniChart(snap: SessionSnapshot) {
+private fun MiniChart(snap: SessionSnapshot, markers: List<Marker>) {
     val candles = snap.candles
     if (candles.isEmpty()) return
+    val textMeasurer = rememberTextMeasurer()
+    val labelStyle = TextStyle(color = Palette.MarkerYellow, fontSize = 9.sp)
     Canvas(Modifier.fillMaxWidth().padding(top = 10.dp).height(96.dp)) {
         val hi = maxOf(candles.maxOf { it.h }, snap.orHigh ?: -Double.MAX_VALUE)
         val lo = minOf(candles.minOf { it.l }, snap.orLow ?: Double.MAX_VALUE)
         val span = (hi - lo).takeIf { it > 0 } ?: 1.0
         fun y(v: Double) = (4f + (hi - v) / span * (size.height - 8f)).toFloat()
 
-        val slots = maxOf(candles.size, 24)
+        // One slot per 5 minutes since the open, so gaps in the data keep their place.
+        val candleSlots = ((candles.last().t - snap.openEpoch) / OrbEngine.CANDLE_SECONDS + 1).toInt()
+        val slots = maxOf(candleSlots, 24)
         val slot = size.width / slots
+        fun x(epoch: Long) = ((epoch - snap.openEpoch).toFloat() / OrbEngine.CANDLE_SECONDS) * slot
         val body = (slot * 0.6f).coerceIn(1.5f, 10f)
         val dash = PathEffect.dashPathEffect(floatArrayOf(8f, 6f))
 
         // Shade the 30-minute opening-range period.
-        val rangeCandles = candles.count { it.t < snap.rangeEndEpoch }
-        drawRect(Color.White.copy(alpha = 0.04f), Offset.Zero, Size(rangeCandles * slot, size.height))
+        drawRect(Color.White.copy(alpha = 0.04f), Offset.Zero, Size(x(snap.rangeEndEpoch), size.height))
 
-        snap.orHigh?.let { orH ->
-            val orL = snap.orLow!!
-            drawRect(Palette.Muted.copy(alpha = 0.10f), Offset(0f, y(orH)), Size(size.width, y(orL) - y(orH)))
-            listOf(orH, orL).forEach {
-                drawLine(Palette.Muted, Offset(0f, y(it)), Offset(size.width, y(it)), 1.5f, pathEffect = dash)
-            }
-        }
         if (snap.vah != null && snap.valueAreaLow != null) {
             drawRect(Palette.ValueArea.copy(alpha = 0.15f), Offset(0f, y(snap.vah!!)), Size(size.width, y(snap.valueAreaLow!!) - y(snap.vah!!)))
             listOf(snap.vah!!, snap.valueAreaLow!!).forEach {
                 drawLine(Palette.ValueArea, Offset(0f, y(it)), Offset(size.width, y(it)), 1f, pathEffect = PathEffect.dashPathEffect(floatArrayOf(3f, 5f)))
             }
         }
+        snap.orHigh?.let { orH ->
+            val orL = snap.orLow!!
+            drawRect(Palette.Muted.copy(alpha = 0.08f), Offset(0f, y(orH)), Size(size.width, y(orL) - y(orH)))
+            drawLine(Palette.Green, Offset(0f, y(orH)), Offset(size.width, y(orH)), 1.5f, pathEffect = dash)
+            drawLine(Palette.Red, Offset(0f, y(orL)), Offset(size.width, y(orL)), 1.5f, pathEffect = dash)
+        }
 
-        candles.forEachIndexed { i, c ->
-            val x = (i + 0.5f) * slot
+        markers.forEach { m ->
+            val mx = x(m.epoch)
+            if (mx <= 0f || mx > size.width) return@forEach
+            drawLine(Palette.MarkerYellow, Offset(mx, 0f), Offset(mx, size.height), 1.5f)
+            val label = textMeasurer.measure(m.label, labelStyle)
+            val lx = if (mx + 3f + label.size.width <= size.width) mx + 3f else mx - 3f - label.size.width
+            drawText(label, topLeft = Offset(lx, 0f))
+        }
+
+        candles.forEach { c ->
+            val cx = x(c.t) + slot / 2
             val color = if (c.c >= c.o) Palette.Green else Palette.Red
-            drawLine(color, Offset(x, y(c.h)), Offset(x, y(c.l)), 1.5f)
+            drawLine(color, Offset(cx, y(c.h)), Offset(cx, y(c.l)), 1.5f)
             val top = y(maxOf(c.o, c.c))
             val height = maxOf(1.5f, y(minOf(c.o, c.c)) - top)
-            drawRect(color, Offset(x - body / 2, top), Size(body, height))
+            drawRect(color, Offset(cx - body / 2, top), Size(body, height))
         }
     }
 }

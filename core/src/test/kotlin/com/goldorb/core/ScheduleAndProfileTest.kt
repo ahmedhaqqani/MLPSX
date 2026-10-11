@@ -120,4 +120,18 @@ class ScheduleAndProfileTest {
             OrbUpdater.nextWake(SessionConfig.DEFAULTS, result.snapshots, now, lastRefreshFailed = true),
         )
     }
+
+    @Test
+    fun marketOpensInsideSessions() {
+        val asianWin = SessionSchedule.latestWindow(asian, Instant.parse("2026-10-13T05:00:00Z"))
+        assertEquals(
+            Instant.parse("2026-10-13T01:00:00Z"),
+            SessionSchedule.openWithin(SessionSchedule.SHANGHAI_OPEN, SessionSchedule.SHANGHAI_ZONE, asianWin.open, asianWin.close),
+        )
+        assertEquals(Instant.parse("2026-10-13T07:00:00Z"), SessionSchedule.openWithin(london.open, london.zone, asianWin.open, asianWin.close))
+        val londonWin = SessionSchedule.latestWindow(london, Instant.parse("2026-10-09T15:00:00Z"))
+        assertEquals(Instant.parse("2026-10-09T13:30:00Z"), SessionSchedule.openWithin(ny.open, ny.zone, londonWin.open, londonWin.close))
+        // New York never opens inside the Asian session.
+        assertEquals(null, SessionSchedule.openWithin(ny.open, ny.zone, asianWin.open, asianWin.close))
+    }
 }
