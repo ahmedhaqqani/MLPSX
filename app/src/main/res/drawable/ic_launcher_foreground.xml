@@ -1,0 +1,15 @@
+<?xml version="1.0" encoding="utf-8"?>
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="108dp" android:height="108dp"
+    android:viewportWidth="108" android:viewportHeight="108">
+    <!-- opening range box -->
+    <path android:fillColor="#33F5B942" android:strokeColor="#F5B942" android:strokeWidth="2"
+        android:pathData="M30,50 L78,50 L78,66 L30,66 Z" />
+    <!-- breakout candles -->
+    <path android:fillColor="#F5B942" android:pathData="M36,54 h6 v10 h-6 z" />
+    <path android:fillColor="#F5B942" android:pathData="M48,52 h6 v10 h-6 z" />
+    <path android:fillColor="#22C55E" android:pathData="M60,40 h6 v16 h-6 z" />
+    <path android:fillColor="#22C55E" android:pathData="M70,32 h6 v14 h-6 z" />
+    <!-- signal dot -->
+    <path android:fillColor="#22C55E" android:pathData="M42,38 m-5,0 a5,5 0 1,0 10,0 a5,5 0 1,0 -10,0" />
+</vector>

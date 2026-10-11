@@ -1,0 +1,9 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <color name="ic_bg">#0E1116</color>
+    <style name="Theme.GoldORB" parent="android:Theme.Material.NoActionBar">
+        <item name="android:windowBackground">@color/ic_bg</item>
+        <item name="android:statusBarColor">@color/ic_bg</item>
+        <item name="android:navigationBarColor">@color/ic_bg</item>
+    </style>
+</resources>
