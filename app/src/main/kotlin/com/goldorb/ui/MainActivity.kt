@@ -76,9 +76,8 @@ class MainActivity : ComponentActivity() {
 
     private fun handleIntent(intent: Intent?) {
         val data = intent?.data ?: return
-        if (data.scheme == "goldorb" && data.host == "oauth") {
-            vm.handleRedirect(data)
-            setIntent(Intent(this, MainActivity::class.java))
-        }
+        // The sign-in page links back to goldorb://oauth/callback just to reopen the app;
+        // the sign-in itself finishes in TradingViewAuth.login.
+        if (data.scheme == "goldorb") setIntent(Intent(this, MainActivity::class.java))
     }
 }

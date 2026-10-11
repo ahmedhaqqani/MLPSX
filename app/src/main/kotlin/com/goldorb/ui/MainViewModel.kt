@@ -1,7 +1,6 @@
 package com.goldorb.ui
 
 import android.app.Application
-import android.net.Uri
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
 import com.goldorb.container
@@ -11,6 +10,8 @@ import com.goldorb.core.SessionId
 import com.goldorb.core.SessionSchedule
 import com.goldorb.data.AppSettings
 import com.goldorb.service.MonitorService
+import kotlinx.coroutines.CancellationException
+import kotlinx.coroutines.Job
 import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.SharingStarted
@@ -58,24 +59,19 @@ class MainViewModel(private val app: Application) : AndroidViewModel(app) {
         viewModelScope.launch { if (c.settings.current().monitoring) MonitorService.start(app) }
     }
 
-    /** Saves the server URL and symbol, then opens the TradingView sign-in page. */
-    fun connect(mcpUrl: String, symbol: String) {
-        viewModelScope.launch {
-            c.settings.update { it.copy(mcpUrl = mcpUrl, symbol = symbol) }
-            runCatching { c.auth.beginLogin() }
-                .onSuccess { _openUrl.send(it) }
-                .onFailure { _messages.send("Couldn't start sign-in: ${it.message}") }
-        }
-    }
+    private var loginJob: Job? = null
 
-    fun handleRedirect(uri: Uri) {
-        viewModelScope.launch {
-            runCatching { c.auth.completeLogin(uri) }
+    /** Saves the server URL and symbol, then signs in to TradingView in the browser. */
+    fun connect(mcpUrl: String, symbol: String) {
+        loginJob?.cancel()
+        loginJob = viewModelScope.launch {
+            c.settings.update { it.copy(mcpUrl = mcpUrl, symbol = symbol) }
+            runCatching { c.auth.login { url -> _openUrl.send(url) } }
                 .onSuccess {
                     _messages.send("Connected to TradingView")
                     c.repository.refresh()
                 }
-                .onFailure { _messages.send("Sign-in failed: ${it.message}") }
+                .onFailure { if (it !is CancellationException) _messages.send("Sign-in failed: ${it.message}") }
         }
     }
 
